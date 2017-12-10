@@ -6,8 +6,8 @@
 
 var fs = require("fs"),
     path = require("path"),
-    ndev = require("./ndev"),
-    util = require("./util");
+    util = require("./util"),
+    tb = require("./tb");
 
 module.exports = {
 
@@ -19,21 +19,21 @@ module.exports = {
     run: function(args, callback) {
         if (!args || args.length === 0) { return util.err("&require-command"); }
 
-        var cmd = args.shift().trim();
-        var fnc = "cmd" + cmd.charAt(0).toUpperCase() + cmd.slice(1).toLowerCase();
+        var dir = args[0];
 
-        if (typeof ndev[fnc] === "function") {
-            return ndev[fnc](args, callback);
+        var env = {
+            cache: path.join(process.cwd(), '.testboard')
+        };
+
+        if (!fs.existsSync(dir)) {
+            return util.err("test case not found: "+path);
         }
 
-        switch (cmd) {
-            case "--help":
-                return this.getHelp(args);
-            case "--version":
-                return this.getVersion();
+        if (fs.lstatSync(dir).isFile()) {
+            return tb.runTestCase(env, dir);
         }
 
-        return util.err("&cmd-undefined", { cmd: cmd });
+        console.log("TODO: implement multimple test case on directory.");
     },
 
     /**

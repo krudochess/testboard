@@ -4,311 +4,143 @@
  * MIT Licensed
  */
 
-var base = require("path").basename,
+var fs = require("fs"),
+    dirname = require("path").dirname,
+    resolve =  require("path").resolve,
+    basename = require("path").basename,
+    merge = require('object-merge'),
+    parse = require('ini').parse,
+    unsafe = require('ini').safe,
+    mkdir = require('shelljs').mkdir,
+    stringify = require('ini').stringify,
     join = require("path").join,
+    exec = require("child_process").spawn,
     util = require("./util");
 
 module.exports = {
 
     /**
-     * Contain current working direcotry.
-     * @var string
-     */
-    cwd: process.cwd(),
-
-    /**
      * Run ndev module package.json scripts.
      *
      * @param args
      */
-    cmdRun: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "run"}); }
-        if (!args[1]) { return util.err("&require-script", {cmd: "run"}); }
-
-        util.info(args[0], "Executing: 'npm run ${script}'", {script: args[1]});
-
-        return this.exec("run", args, callback);
+    runTestCase: function (env, file, callback) {
+        return this.xboard(env, this.parse(env, file));
     },
 
-    /**
-     * Run ndev module package.json scripts.
-     *
-     * @param args
-     */
-    cmdSetup: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "run"}); }
-
-        util.info(args[0], "Setup in progress...");
-
-        return this.exec("setup", args, callback);
+    parse: function (env, file) {
+        return this.cache(env, file, this.load(env, resolve(file)));
     },
 
-    /**
-     * Run ndev module package.json scripts.
-     *
-     * @param args
-     */
-    cmdFix: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "fix"}); }
+    load: function (env, file) {
+        var path = dirname(file);
+        var code = [ join(__dirname, '../ini/base.ini')];
 
-        util.info(args[0], "ESLint fix...");
+        this.resolveExtends(env, path, file, code);
 
-        return this.exec("fix", args, callback);
-    },
+        var data = {};
+        for (var i in code) {
+            var raw = fs.readFileSync(code[i], 'utf-8');
+            raw = this.resolveAbsolute(dirname(code[i]), raw);
 
-    /**
-     * Test command.
-     *
-     * @param args
-     */
-    cmdTest: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "test"}); }
-
-        if (!args[1]) {
-            util.info(args[0], "Testing by 'npm run test'");
-            return this.exec("npm-run-test", args, callback);
+            data = merge(data, parse(raw));
         }
 
-        args[1] = 'test/' + args[1] + '-test.js';
-        util.info(args[0], "Testing file '${file}' by ndev-framework", {file: args[1]});
+        this.resolveValues(data);
 
-        return this.exec("test-file", args, callback);
+        return data;
     },
 
-    /**
-     * Clone repository and mount as ndev module.
-     *
-     * @param args
-     */
-    cmdClone: function (args, callback) {
-        if (!args[0]) { return util.err("&require-repository", {cmd: "clone"}); }
+    resolveExtends: function (env, path, file, code) {
+        if (!fs.existsSync(file)) { return; }
 
-        if (!util.isRepo(args[0])) {
-            args[0] = util.getModuleRepo(args[0]);
-            if (!args[0]) {
-                return util.err("&invalid-repository", {cmd: "clone", repo: args[0]});
+        var raw = fs.readFileSync(file, 'utf-8');
+        var pattern = /@extends\(([\._a-z0-9\/\\]+)\)/gi
+        var extend;
+
+        while (extend = pattern.exec(raw)) {
+            extend.file = join(path, extend[1]);
+            extend.path = dirname(extend.file);
+            this.resolveExtends(env, extend.path, extend.file, code);
+        }
+
+        code.push(file);
+    },
+
+    resolveAbsolute: function (path, raw) {
+        var pattern = /@absolute\(([\._a-z0-9\/\\]+)\)/gi
+        var absolute;
+
+        while (absolute = pattern.exec(raw)) {
+            absolute.path = join(path, absolute[1]);
+            var replace = absolute[0].replace('(', '\\(').replace(')', '\\)');
+            raw = raw.replace(new RegExp(replace, "g"), absolute.path);
+        }
+
+        return raw;
+    },
+
+    resolveValues: function (data) {
+        for (i in data) {
+            if (typeof data[i] == 'string' && isNaN(parseInt(data[i]))) {
+                data[i] = '"' + data[i] + '"';
             }
         }
-
-        var repo = args[0].trim();
-        var name = args[1] || base(repo, ".git");
-
-        util.info("Cloning", repo);
-
-        this.exec("clone", [repo, name], function (resp) {
-            callback(util.log(resp.trim()));
-        });
     },
 
-    /**
-     *
-     *
-     * @param args
-     */
-    cmdMount: function (args, callback) {
-        if (!args[0]) { return util.err("&require-repository", {cmd: "mount"}); }
-
-        util.info(args[0], "Mounting...");
-
-        return this.exec("mount", args, callback);
+    sanitize: function (str) {
+        return unsafe(str);
     },
 
-    /**
-     *
-     *
-     * @param args
-     */
-    cmdPurge: function (args, callback) {
-        if (!args[0]) { return util.err("&require-repository", {cmd: "purge"}); }
-
-        util.info(args[0], "Purge...");
-
-        return this.exec("purge", args, callback);
-    },
-
-    /**
-     *
-     * @param args
-     */
-    cmdInstall: function (args, callback) {
-        util.info("running", "npm install "+args.join(" "));
-        return this.exec("install", args, callback);
-    },
-
-    /**
-     *
-     * @param args
-     */
-    cmdFreeze: function (args, callback) {
-        var path = null;
-
-        if (!args[0]) {
-            util.info("freeze", "Freezing all ndev modules...");
-            return this.exec("freeze-all", args, callback);
+    cache: function (env, file, data) {
+        if (!fs.existsSync(env.cache)) {
+            mkdir('-p', env.cache);
         }
 
-        path = join(this.cwd, "node_modules", "." + args[0]);
-        if (util.dirExists(path)) {
-            return util.err("Module '${mod}' already freeze.", {mod: args[0]});
+        var dest = join(env.cache, basename(file));
+        var code = stringify(data, {whitespace: false});
+
+        // fix string quote bugs
+        code = code.replace(/("\\")|(\\"")/g, '"')
+
+        // fix xboard implicit true properties
+        var implicit = ['cp', 'firstXBook', 'secondXBook'];
+        for (var i in implicit) {
+            code = code.replace(
+                new RegExp('/' + implicit[i] + '=true\n', 'g'),
+                '/' + implicit[i] + '\n'
+            );
         }
 
-        path = join(this.cwd, 'node_modules', args[0]);
-        if (!util.dirExists(path)) {
-            return util.err("Module '${mod}' not found.", {mod: args[0]});
-        }
+        // write cache file
+        fs.writeFileSync(dest, code);
 
-        util.info(args[0], "Freezing...");
-
-        return this.exec("freeze", args, callback);
+        return dest;
     },
 
-    /**
-     *
-     * @param args
-     */
-    cmdUnfreeze: function (args, callback) {
-        var path = null;
-        if (!args[0]) {
-            util.info("unfreeze", "Unfreezing all ndev modules...");
-            return this.exec("unfreeze-all", args, callback);
-        }
+    xboard: function (env, input) {
+        var xboard = 'xboard';
+        var params = [ '@' + input ];
 
-        path = join(this.cwd, "node_modules", args[0]);
-        if (util.dirExists(path)) {
-            return util.err("Module '${mod}' already unfreeze.", {mod: args[0]});
-        }
-
-        path = join(this.cwd, 'node_modules', "."+args[0]);
-        if (!util.dirExists(path)) {
-            return util.err("Missing module freeze for '${mod}'.", {mod: args[0]});
-        }
-
-        util.info(args[0], "Unfreezing...");
-
-        return this.exec("unfreeze", args, callback);
+        //return this.exec(env, xboard, params);
     },
 
-    /**
-     *
-     * @param args
-     */
-    cmdPublish: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "publish"}); }
+    exec: function (env, command, params) {
+        var wrapper = exec(command, params);
 
-        var ver = this.versionUpdate(args[0]);
-
-        util.info(args[0], "Publish new version '${ver}'", {ver: ver});
-
-        return this.exec("publish", args, callback);
-    },
-
-    /**
-     *
-     * @param args
-     */
-    cmdCommit: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "commit"}); }
-
-        util.info(args[0], "Commit and push changes (git login)");
-
-        var module = args.shift().trim();
-        var message = util.ucfirst(args.join(" ").trim()) || "Update from " + this.getVersion(module);
-
-        return this.exec("commit", [module, message], callback);
-    },
-
-    /**
-     *
-     * @param args
-     */
-    cmdUpdate: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "update"}); }
-
-        util.info(args[0], "Update source code (git login)");
-
-        var module = args.shift().trim();
-
-        return this.exec("update", [module], callback);
-    },
-
-    /**
-     *
-     * @param args
-     */
-    cmdRequire: function (args, callback) {
-        return this.exec("require", args, callback);
-    },
-
-    /**
-     *
-     * @param args
-     */
-    cmdInfo: function (args, callback) {
-        if (!args[0]) { return util.err("&require-module", {cmd: "info"}); }
-
-        var repo = util.getModuleRepo(args[0]);
-
-        console.log(repo);
-    },
-
-    /**
-     *
-     * @param cmd
-     * @param args
-     * @param callback
-     */
-    exec: function (cmd, args, callback) {
-        args.unshift(this.cwd);
-
-        util.exec(cmd, args, function(resp) {
-            callback(util.log(resp));
+        // Attach stdout handler
+        wrapper.stdout.on("data", function (data) {
+            process.stdout.write(data.toString());
         });
 
-        return;
-    },
+        // Attach stderr handler
+        wrapper.stderr.on("data", function (data) {
+            process.stdout.write(data.toString());
+        });
 
-    /**
-     *
-     * @param cmd
-     * @param args
-     * @param callback
-     */
-    loadPackageJson: function (module) {
-        var file = join(this.cwd, 'node_modules', module, 'package.json');
-        return util.loadJson(file);
-    },
-
-    /**
-     *
-     * @param cmd
-     * @param args
-     * @param callback
-     */
-    savePackageJson: function (module, info) {
-        var file = join(this.cwd, 'node_modules', module, 'package.json');
-        util.saveJson(file, info);
-    },
-
-    /**
-     * Get version number of module.
-     */
-    getVersion: function (module) {
-        var info = this.loadPackageJson(module);
-        if (typeof info["version"] != "undefined" && info["version"]) {
-            return info["version"];
-        }
-        return "0.0.0";
-    },
-
-    /**
-     * Update version number by smallest unit.
-     */
-    versionUpdate: function (module) {
-        var info = this.loadPackageJson(module);
-        var verOld = info.version.split(".");
-        verOld[verOld.length - 1] = parseInt(verOld[verOld.length - 1]) + 1;
-        info.version = verOld.join(".");
-        this.savePackageJson(module, info);
-        return info.version;
+        // Attach exit handler
+        wrapper.on("exit", function (code) {
+            var code = code.toString();
+        });
     }
 };
