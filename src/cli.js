@@ -22,6 +22,7 @@ module.exports = {
         var dir = args[0];
 
         var env = {
+            cwd: process.cwd(),
             cache: path.join(process.cwd(), '.testboard')
         };
 
