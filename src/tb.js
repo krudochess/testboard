@@ -121,6 +121,7 @@ module.exports = {
     },
 
     /**
+     * Resolve extends and feature dependencies.
      *
      * @param file
      * @param deps
@@ -135,7 +136,6 @@ module.exports = {
         pattern = new RegExp('^@extends\\((' + this.REGEXP_FILE + ')\\)', 'gmi');
         while (info = pattern.exec(raw)) {
             info.file = join(path, info[1]);
-            console.log('e:', util.escapeBracket(info[0]));
             raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
             this.resolveDependency(info.file, deps);
         }
@@ -291,20 +291,21 @@ module.exports = {
      * @param input
      * @returns {*}
      */
-    xboard: function (env, input) {
+    xboard: function (input) {
         var xboard = 'xboard';
         var params = [ '@' + input ];
 
-        return this.exec(env, xboard, params);
+        return this.exec(xboard, params);
     },
 
     /**
+     * Run terminal command.
      *
      * @param env
      * @param command
      * @param params
      */
-    exec: function (env, command, params) {
+    exec: function (command, params) {
         var wrapper = spawn(command, params);
 
         // Attach stdout handler
