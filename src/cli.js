@@ -21,7 +21,7 @@ module.exports = {
 
         var dir = args[0];
 
-        var env = {
+        tb.env = {
             cwd: process.cwd(),
             cache: path.join(process.cwd(), '.testboard')
         };
@@ -31,7 +31,7 @@ module.exports = {
         }
 
         if (fs.lstatSync(dir).isFile()) {
-            return tb.runTestCase(env, dir);
+            return tb.runTestCase(dir);
         }
 
         console.log("TODO: implement multimple test case on directory.");

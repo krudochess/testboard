@@ -1,63 +1,105 @@
 /*!
- * ndev-framework
+ * TestBoard
  * Copyright(c) 2016-2017 Javanile.org
  * MIT Licensed
  */
 
-var fs = require("fs"),
-    dirname = require("path").dirname,
-    resolve =  require("path").resolve,
-    basename = require("path").basename,
-    merge = require('object-merge'),
-    parse = require('ini').parse,
-    unsafe = require('ini').safe,
-    mkdir = require('shelljs').mkdir,
-    stringify = require('ini').stringify,
-    join = require("path").join,
-    exec = require("child_process").spawn,
-    util = require("./util");
+const fs = require('fs'),
+      os = require('os'),
+      md5 = require('md5'),
+      parse = require('ini').parse,
+      unsafe = require('ini').safe,
+      stringify = require('ini').stringify,
+      basename = require("path").basename,
+      dirname = require("path").dirname,
+      resolve = require("path").resolve,
+      spawn = require("child_process").spawn,
+      merge = require('object-merge'),
+      mkdir = require('shelljs').mkdir,
+      join = require("path").join,
+      util = require("./util");
 
 module.exports = {
+
+    /**
+     *
+     */
+    env: {
+        cwd: process.cwd(),
+        cache: join(process.cwd(), '.testboard')
+    },
+
+    /**
+     *
+     */
+    files: {},
+
+    /**
+     *
+     */
+    REGEXP_FILE: '[\\._a-z0-9\\/\\\\]+',
+
+    /**
+     *
+     */
+    REGEXP_FEATURE: '[\\._a-z0-9\\/\\\\]+',
 
     /**
      * Run ndev module package.json scripts.
      *
      * @param args
      */
-    runTestCase: function (env, file, callback) {
-        return this.xboard(env, this.parseTestCase(env, file));
+    runTestCase: function (file, callback) {
+        return this.xboard(this.parseTestCase(file), callback);
     },
 
-    parseTestCase: function (env, file) {
-        return this.cacheTestCase(env, file, this.loadTestCase(env, resolve(file)));
+    /**
+     * Run ndev module package.json scripts.
+     *
+     * @param args
+     */
+    parseTestCase: function (file) {
+        return this.cacheTestCase(file, this.loadTestCase(resolve(file)));
     },
 
-    loadTestCase: function (env, file) {
-        var path = dirname(file);
-        var code = [ join(__dirname, '../ini/xboard.ini')];
+    /**
+     * Run ndev module package.json scripts.
+     *
+     * @param args
+     */
+    loadTestCase: function (file) {
+        var deps = [join(__dirname, '../ini/xboard.ini')];
 
-        this.resolveExtends(env, path, file, code);
+        if (os.platform() === "win32") {
+            deps.push(join(__dirname, '../ini/winboard.ini'))
+        }
+
+        this.resolveDependency(file, deps);
 
         var data = {};
-        for (var i in code) {
-            var raw = fs.readFileSync(code[i], 'utf-8');
-            raw = this.resolveAbsolute(dirname(code[i]), raw);
-            raw = this.resolveRelative(env, raw);
-            raw = this.resolvePolyglot(env, dirname(code[i]), raw);
+        for (var i in deps) {
+            var raw = this.read(deps[i]);
+            raw = this.resolveResource(dirname(deps[i]), raw);
+            raw = this.resolvePolyglot(dirname(deps[i]), raw);
+            this.save(deps[i], raw);
+            console.log
             data = merge(data, parse(raw));
         }
 
-        this.resolveValues(data);
-
-        return data;
+        return this.fixValues(data);
     },
 
-    cacheTestCase: function (env, file, data) {
-        if (!fs.existsSync(env.cache)) {
-            mkdir('-p', env.cache);
-        }
+    /**
+     *
+     * @param file
+     * @param data
+     */
+    cacheTestCase: function (file, data) {
+        var cacheDir = join(this.env.cache, md5(file));
+        var cacheFile = join(cacheDir, basename(file));
 
-        var dest = join(env.cache, basename(file));
+        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+
         var code = stringify(data, {whitespace: false});
 
         // fix string quote bugs
@@ -73,114 +115,182 @@ module.exports = {
         }
 
         // write cache file
-        fs.writeFileSync(dest, code);
+        fs.writeFileSync(cacheFile, code);
 
-        return dest;
+        return cacheFile;
     },
 
-    resolveExtends: function (env, path, file, code) {
+    /**
+     *
+     * @param file
+     * @param deps
+     */
+    resolveDependency: function (file, deps) {
         if (!fs.existsSync(file)) { return; }
 
-        var raw = fs.readFileSync(file, 'utf-8');
-        var pattern = /@extends\(([\._a-z0-9\/\\]+)\)/gi
-        var extend;
+        var raw = this.read(file);
+        var path = dirname(file);
+        var info, pattern;
 
-        while (extend = pattern.exec(raw)) {
-            extend.file = join(path, extend[1]);
-            extend.path = dirname(extend.file);
-            this.resolveExtends(env, extend.path, extend.file, code);
+        pattern = new RegExp('^@extends\\((' + this.REGEXP_FILE + ')\\)', 'gmi');
+        while (info = pattern.exec(raw)) {
+            info.file = join(path, info[1]);
+            console.log('e:', util.escapeBracket(info[0]));
+            raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
+            this.resolveDependency(info.file, deps);
         }
 
-        code.push(file);
+        pattern = new RegExp('^@feature\\((' + this.REGEXP_FEATURE + ')\\)', 'gmi');
+        while (info = pattern.exec(raw)) {
+            info.file = join(path, info[1].replace());
+            raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
+            this.resolveDependency(info.file, deps);
+        }
+
+        deps.push(file);
     },
 
-    resolveAbsolute: function (path, raw) {
-        var pattern = /@absolute\(([\._a-z0-9\/\\]+)\)/gi
-        var absolute;
+    /**
+     * Resolve work directory relative path.
+     *
+     * @param raw
+     * @returns {*}
+     */
+    resolveResource: function (path, raw) {
+        var info, pattern;
 
-        while (absolute = pattern.exec(raw)) {
-            absolute.path = join(path, absolute[1]);
-            var replace = absolute[0].replace('(', '\\(').replace(')', '\\)');
-            raw = raw.replace(new RegExp(replace, "g"), absolute.path);
+        pattern = new RegExp('@relative\\((' + this.REGEXP_FILE + ')\\)', 'gi');
+        while (info = pattern.exec(raw)) {
+            info.resource = join(this.env.cwd, info[1]);
+            raw = raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), info.resource);
+        }
+
+        pattern = new RegExp('@absolute\\((' + this.REGEXP_FILE + ')\\)', 'gi');
+        while (info = pattern.exec(raw)) {
+            info.resource = join(path, info[1]);
+            raw = raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), info.resource);
         }
 
         return raw;
     },
 
-    resolveRelative: function (env, raw) {
-        var pattern = /@relative\(([\._a-z0-9\/\\]+)\)/gi
-        var relative;
+    /**
+     * Resolve polyglot resource.
+     *
+     * @param path
+     * @param raw
+     * @returns {*}
+     */
+    resolvePolyglot: function (path, raw) {
+        var polyglot, pattern;
 
-        while (relative = pattern.exec(raw)) {
-            relative.path = join(env.cwd, relative[1]);
-            var replace = relative[0].replace('(', '\\(').replace(')', '\\)');
-            raw = raw.replace(new RegExp(replace, "g"), relative.path);
-        }
-
-        return raw;
-    },
-
-    resolvePolyglot: function (env, path, raw) {
-        var pattern = /@polyglot\(([\._a-z0-9\/\\]+)\)/gi
-        var polyglot;
-
+        pattern = new RegExp('@polyglot\\((' + this.REGEXP_FILE + ')\\)', 'gi');
         while (polyglot = pattern.exec(raw)) {
             polyglot.file = join(path, polyglot[1]);
-            var replace = polyglot[0].replace('(', '\\(').replace(')', '\\)');
-            var command = 'polyglot ' + this.parsePolyglot(env, path, polyglot.file);
-            raw = raw.replace(new RegExp(replace, "g"), command);
+            var replace = util.escapeBracket(polyglot[0]);
+            var command = 'polyglot ' + this.parsePolyglot(polyglot.file);
+            raw = raw.replace(new RegExp(replace, 'g'), command);
         }
 
         return raw;
     },
 
-    resolveValues: function (data) {
+    /**
+     *
+     * @param data
+     */
+    fixValues: function (data) {
         for (i in data) {
             if (typeof data[i] == 'string' && isNaN(parseInt(data[i]))) {
                 data[i] = '"' + data[i] + '"';
             }
         }
-    },
-
-    parsePolyglot: function (env, path, file) {
-        return this.cachePolyglot(env, path, file, this.loadPolyglot(env, path, file));
-    },
-
-    loadPolyglot: function (env, path, file) {
-        var code = [ join(__dirname, '../ini/polyglot.ini')];
-
-        this.resolveExtends(env, path, file, code);
-
-        var data = {};
-        for (var i in code) {
-            var raw = fs.readFileSync(code[i], 'utf-8');
-            raw = this.resolveAbsolute(dirname(code[i]), raw);
-            raw = this.resolveRelative(env, raw);
-            data = merge(data, parse(raw));
-        }
-
-        this.resolveValues(data);
-
         return data;
     },
 
-    cachePolyglot: function (env, path, file, data) {
-        if (!fs.existsSync(env.cache)) {
-            mkdir('-p', env.cache);
+    /**
+     *
+     * @param file
+     * @returns {*}
+     */
+    parsePolyglot: function (file) {
+        return this.cachePolyglot(file, this.loadPolyglot(resolve(file)));
+    },
+
+    /**
+     *
+     * @param file
+     * @returns {{}}
+     */
+    loadPolyglot: function (file) {
+        var deps = [join(__dirname, '../ini/polyglot.ini')];
+
+        this.resolveDependency(file, deps);
+
+        var data = {};
+        for (var i in deps) {
+            var raw = this.read(deps[i]);
+            raw = this.resolveResource(dirname(deps[i]), raw);
+            raw = this.save(deps[i], raw);
+            data = merge(data, parse(raw));
         }
 
-        var dest = join(env.cache, basename(file));
+        return this.fixValues(data);
+    },
+
+    /**
+     * Cache polyglot parsed file.
+     *
+     * @param file
+     * @param data
+     */
+    cachePolyglot: function (file, data) {
+        var cacheDir = join(this.env.cache, md5(file));
+        var cacheFile = join(cacheDir, basename(file));
+
+        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+
         var code = stringify(data, {whitespace: false});
 
         // fix string quote bugs
         code = code.replace(/("\\")|(\\"")/g, '"')
 
         // write cache file
-        fs.writeFileSync(dest, code);
+        fs.writeFileSync(cacheFile, code);
 
-        return dest;
+        return cacheFile;
     },
 
+    /**
+     * Load file and save content in runtime cache.
+     *
+     * @param file
+     * @returns {*}
+     */
+    read: function (file) {
+        if (typeof this.files[file] == 'undefined') {
+            this.save(file, fs.readFileSync(file, 'utf-8'));
+        }
+        return this.files[file];
+    },
+
+    /**
+     * Update file content in runtime cache.
+     *
+     * @param file
+     * @returns {*}
+     */
+    save: function (file, raw) {
+        this.files[file] = raw;
+        return this.files[file];
+    },
+
+    /**
+     *
+     * @param env
+     * @param input
+     * @returns {*}
+     */
     xboard: function (env, input) {
         var xboard = 'xboard';
         var params = [ '@' + input ];
@@ -188,8 +298,14 @@ module.exports = {
         return this.exec(env, xboard, params);
     },
 
+    /**
+     *
+     * @param env
+     * @param command
+     * @param params
+     */
     exec: function (env, command, params) {
-        var wrapper = exec(command, params);
+        var wrapper = spawn(command, params);
 
         // Attach stdout handler
         wrapper.stdout.on("data", function (data) {

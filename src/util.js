@@ -167,5 +167,12 @@ module.exports = {
      */
     dirExists: function (path) {
         return fs.existsSync(path);
+    },
+
+    /**
+     *
+     */
+    escapeBracket: function (str) {
+        return str.replace('(', '\\(').replace(')', '\\)');
     }
 };

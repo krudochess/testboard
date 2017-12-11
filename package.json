@@ -1,6 +1,6 @@
 {
     "name": "testboard",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "license": "MIT",
     "author": {
         "name": "Francesco Bianco",
@@ -27,6 +27,7 @@
     "dependencies": {
         "colors": "^1.1.2",
         "ini": "^1.3.5",
+        "md5": "^2.2.1",
         "object-merge": "^2.5.1",
         "shelljs": "^0.7.8"
     }
