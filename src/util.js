@@ -174,5 +174,16 @@ module.exports = {
      */
     escapeBracket: function (str) {
         return str.replace('(', '\\(').replace(')', '\\)');
+    },
+
+    /**
+     *
+     */
+    copy: function (src, dest) {
+        if (!fs.existsSync(src)) {
+            return false;
+        }
+        var data = fs.readFileSync(src, 'utf-8');
+        fs.writeFileSync(dest, data);
     }
 };

@@ -11,6 +11,7 @@ const fs = require('fs'),
       unsafe = require('ini').safe,
       stringify = require('ini').stringify,
       basename = require("path").basename,
+      extname = require('path').extname,
       dirname = require("path").dirname,
       resolve = require("path").resolve,
       spawn = require("child_process").spawn,
@@ -37,7 +38,7 @@ module.exports = {
     /**
      *
      */
-    REGEXP_FILE: '[\\._a-z0-9\\/\\\\]+',
+    REGEXP_FILE: '[\\._a-z0-9\\/\\\\ ]+',
 
     /**
      *
@@ -188,7 +189,12 @@ module.exports = {
         while (polyglot = pattern.exec(raw)) {
             polyglot.file = join(path, polyglot[1]);
             var replace = util.escapeBracket(polyglot[0]);
-            var command = 'polyglot ' + this.parsePolyglot(polyglot.file);
+            var command = 'polyglot ';
+            if (extname(polyglot[1]) == '.ini') {
+                command += this.parsePolyglot(polyglot.file);
+            } else {
+                command += this.forgePolyglot(path, polyglot[1]);
+            }
             raw = raw.replace(new RegExp(replace, 'g'), command);
         }
 
@@ -256,6 +262,28 @@ module.exports = {
         code = code.replace(/("\\")|(\\"")/g, '"')
 
         // write cache file
+        fs.writeFileSync(cacheFile, code);
+
+        return cacheFile;
+    },
+
+    /**
+     * Cache polyglot parsed file.
+     *
+     * @param file
+     * @param data
+     */
+    forgePolyglot: function (path, file) {
+        var cacheDir = join(this.env.cache, md5('(forge)' + path + '/' + file));
+        var cacheFile = join(cacheDir, 'polyglot.ini');
+        var forgeFile = join(__dirname, '../ini/template/forge-polyglot.ini');
+
+        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+
+        var code = fs.readFileSync(forgeFile, 'utf-8');
+
+        code = code.replace('{{file}}', file);
+
         fs.writeFileSync(cacheFile, code);
 
         return cacheFile;

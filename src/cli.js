@@ -19,15 +19,22 @@ module.exports = {
     run: function(args, callback) {
         if (!args || args.length === 0) { return util.err("&require-command"); }
 
-        var dir = args[0];
-
         tb.env = {
             cwd: process.cwd(),
-            cache: path.join(process.cwd(), '.testboard')
+            cache: path.join(process.cwd(), '.testboard'),
+            init: false
         };
 
+        var init = args.indexOf("--init");
+        if (init > -1) { tb.env.init = true; args.splice(init, 1); }
+
+        var dir = args[0];
+
         if (!fs.existsSync(dir)) {
-            return util.err("test case not found: "+path);
+            if (!tb.env.init || !(path.extname(dir) == '.ini')) {
+                return util.err("test case not found: "+dir);
+            }
+            util.copy(path.join(__dirname, '../ini/template/init.ini'), dir);
         }
 
         if (fs.lstatSync(dir).isFile()) {
