@@ -16,7 +16,6 @@ const fs = require('fs'),
       resolve = require("path").resolve,
       spawn = require("child_process").spawn,
       merge = require('object-merge'),
-      mkdir = require('shelljs').mkdir,
       join = require("path").join,
       util = require("./util");
 
@@ -38,12 +37,12 @@ module.exports = {
     /**
      *
      */
-    REGEXP_FILE: '[\\._a-z0-9\\/\\\\ ]+',
+    REGEXP_FILE: '[\\.\\-_a-z0-9\\/\\\\ ]+',
 
     /**
      *
      */
-    REGEXP_FEATURE: '[\\._a-z0-9\\/\\\\]+',
+    REGEXP_FEATURE: '[\\.\\-_a-z0-9\\/\\\\]+',
 
     /**
      * Run ndev module package.json scripts.
@@ -99,7 +98,7 @@ module.exports = {
         var cacheDir = join(this.env.cache, md5(file));
         var cacheFile = join(cacheDir, basename(file));
 
-        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+        if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
         var code = stringify(data, {whitespace: false});
 
@@ -254,7 +253,7 @@ module.exports = {
         var cacheDir = join(this.env.cache, md5(file));
         var cacheFile = join(cacheDir, basename(file));
 
-        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+        if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
         var code = stringify(data, {whitespace: false});
 
@@ -278,11 +277,12 @@ module.exports = {
         var cacheFile = join(cacheDir, 'polyglot.ini');
         var forgeFile = join(__dirname, '../ini/template/forge-polyglot.ini');
 
-        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+        if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
         var code = fs.readFileSync(forgeFile, 'utf-8');
 
         code = code.replace('{{file}}', file);
+        code = code.replace('{{log}}', join(path, file + ".log"));
 
         fs.writeFileSync(cacheFile, code);
 
