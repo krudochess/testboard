@@ -13,6 +13,7 @@ const fs = require('fs'),
       basename = require("path").basename,
       dirname = require("path").dirname,
       resolve = require("path").resolve,
+      exists = require('command-exists'),
       spawn = require("child_process").spawn,
       merge = require('object-merge'),
       mkdir = require('shelljs').mkdir,
@@ -37,6 +38,11 @@ module.exports = {
     /**
      *
      */
+    programs: {},
+
+    /**
+     *
+     */
     REGEXP_FILE: '[\\._a-z0-9\\/\\\\]+',
 
     /**
@@ -50,6 +56,9 @@ module.exports = {
      * @param args
      */
     runTestCase: function (file, callback) {
+        this.files = {};
+        this.programs = {};
+
         return this.xboard(this.parseTestCase(file), callback);
     },
 
@@ -78,12 +87,13 @@ module.exports = {
 
         var data = {};
         for (var i in deps) {
-            var raw = this.read(deps[i]);
-            raw = this.resolveResource(dirname(deps[i]), raw);
-            raw = this.resolvePolyglot(dirname(deps[i]), raw);
-            this.save(deps[i], raw);
-            console.log
-            data = merge(data, parse(raw));
+            if (deps.hasOwnProperty(i)) {
+                var raw = this.read(deps[i]);
+                raw = this.resolveResource(dirname(deps[i]), raw);
+                raw = this.resolvePolyglot(dirname(deps[i]), raw);
+                this.save(deps[i], raw);
+                data = merge(data, parse(raw));
+            }
         }
 
         return this.fixValues(data);
@@ -262,6 +272,22 @@ module.exports = {
     },
 
     /**
+     *
+     * @param program
+     */
+    resolveProgram: function (command) {
+        var program = command.split(' ');
+
+        if (!exists(program)) {
+            console.log("Program not exists:", program);
+
+            process.exit();
+        }
+
+        return command;
+    },
+
+    /**
      * Load file and save content in runtime cache.
      *
      * @param file
@@ -292,7 +318,7 @@ module.exports = {
      * @returns {*}
      */
     xboard: function (input) {
-        var xboard = 'xboard';
+        var xboard = this.resolveProgram('xboard');
         var params = [ '@' + input ];
 
         return this.exec(xboard, params);
