@@ -14,7 +14,7 @@ const fs = require('fs'),
       extname = require('path').extname,
       dirname = require("path").dirname,
       resolve = require("path").resolve,
-      exists = require('command-exists'),
+      exists = require('command-exists').sync,
       spawn = require("child_process").spawn,
       merge = require('object-merge'),
       join = require("path").join,
@@ -38,16 +38,17 @@ module.exports = {
     /**
      *
      */
-<<<<<<< HEAD
     programs: {},
 
     /**
      *
      */
-    REGEXP_FILE: '[\\._a-z0-9\\/\\\\]+',
-=======
+    testcase: null,
+
+    /**
+     *
+     */
     REGEXP_FILE: '[\\.\\-_a-z0-9\\/\\\\ ]+',
->>>>>>> 75d6a5e0a4f674f80f0098e8d77bdbf22f0c9221
 
     /**
      *
@@ -61,6 +62,7 @@ module.exports = {
      */
     runTestCase: function (file, callback) {
         this.files = {};
+        this.testcase = file;
         this.programs = {};
 
         return this.xboard(this.parseTestCase(file), callback);
@@ -282,19 +284,20 @@ module.exports = {
 
     /**
      *
-     * @param program
+     * @param command
      */
     resolveProgram: function (command) {
         var program = command.split(' ');
 
         if (!exists(program)) {
-            console.log("Program not exists:", program);
-
-            process.exit();
+            util.exitErrorFile('program-not-found', {
+                program: program,
+                testcase: this.testcase
+            });
         }
 
         return command;
-    }
+    },
 
     /*
      * Cache polyglot parsed file.
@@ -350,7 +353,7 @@ module.exports = {
      * @returns {*}
      */
     xboard: function (input) {
-        var xboard = this.resolveProgram('xboard');
+        var xboard = this.resolveProgram('xboard1');
         var params = [ '@' + input ];
 
         return this.exec(xboard, params);

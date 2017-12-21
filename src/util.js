@@ -7,9 +7,13 @@
 var fs = require("fs"),
     join = require("path").join,
     spawn = require("child_process").spawn,
+    parse = require('ini').parse,
+    unsafe = require('ini').safe,
+    stringify = require('ini').stringify,
     mkdir = require('shelljs').mkdir,
     exec = require("child_process").execSync,
-    col = require("colors");
+    col = require("colors"),
+    os = require('os');
 
 module.exports = {
 
@@ -59,9 +63,9 @@ module.exports = {
      * @param token
      */
     applyTokens: function (msg, tokens) {
-        for (token in tokens) {
+        for (var token in tokens) {
             if (tokens.hasOwnProperty(token)) {
-                msg = msg.replace("${"+token+"}", tokens[token]);
+                msg = msg.replace(new RegExp("\\$\\{"+token+"\\}", 'g'), tokens[token]);
             }
         }
         return msg;
@@ -196,5 +200,36 @@ module.exports = {
             return false;
         }
         return mkdir('-p', dir);
+    },
+
+    /**
+     *
+     */
+    exitErrorFile: function (file, tokens) {
+        var msg = fs.readFileSync(join(__dirname, '../help/error/' + file + '.txt'), 'utf-8');
+        console.log(this.applyTokens(msg, tokens));
+        process.exit();
+    },
+
+    /**
+     *
+     */
+    updateGlobal: function (section, key, value) {
+        var globalDir = join(os.homedir(), '.testboard');
+        var globalFile = join(globalDir, 'global.ini');
+
+        this.mkdir(globalDir);
+        var global = {};
+        if (fs.existsSync(globalFile)) {
+            global = parse(fs.readFileSync(globalFile, 'utf-8'));
+        }
+        if (!global) { global = {};}
+        if (typeof global[section] === 'undefined') {
+            global[section] = {};
+        }
+
+        global[section][key] = value;
+
+        fs.writeFileSync(globalFile, stringify(global));
     }
 };

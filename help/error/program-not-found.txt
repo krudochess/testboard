@@ -1,0 +1,10 @@
+[ERROR!] Program not found: '${program}'. How to fix:
+
+  {Tip #1} Define program via command line (RECOMMENDED)
+
+     testboard --program "${program}" "C:\Program Files\${program}\${program}.exe"
+
+
+  {Tip #2} Define program by tag into '${testcase}'
+
+     @program(${program}=C:\Program Files\${program}\${program}.exe)

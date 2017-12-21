@@ -19,6 +19,20 @@ module.exports = {
     run: function(args, callback) {
         if (!args || args.length === 0) { return util.err("&require-command"); }
 
+        // process init
+        var init = args.indexOf("--init");
+        if (init > -1 && !fs.existsSync(file) && path.extname(file) == '.ini') {
+            util.mkdir(path.dirname(file));
+            util.copy(path.join(__dirname, '../ini/template/init.ini'), file);
+            return util.info('Test case create', file);
+        }
+
+        // process program
+        var program = args.indexOf("--program");
+        if (program > -1) {
+            return this.addProgram(args, program);
+        }
+
         // get file to run
         var file = null;
         for (var i in args) {
@@ -28,14 +42,6 @@ module.exports = {
                 args.splice(i, 1);
                 break;
             }
-        }
-
-        // process init
-        var init = args.indexOf("--init");
-        if (init > -1 && !fs.existsSync(file) && path.extname(file) == '.ini') {
-            util.mkdir(path.dirname(file));
-            util.copy(path.join(__dirname, '../ini/template/init.ini'), file);
-            return util.info('Test case create', file);
         }
 
         // prepare environment
@@ -57,6 +63,20 @@ module.exports = {
 
         // run multiple test case into directory
         console.log("TODO: implement multimple test case on directory.");
+    },
+
+    /**
+     * Get software help.
+     *
+     * @param args
+     */
+    addProgram: function (args, offset) {
+        var program = args[offset + 1];
+        var exefile = args[offset + 2];
+
+        util.updateGlobal('programs', program, exefile);
+
+        console.log (program, exefile);
     },
 
     /**
