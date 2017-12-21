@@ -281,7 +281,6 @@ module.exports = {
     },
 
     /**
-<<<<<<< HEAD
      *
      * @param program
      */
@@ -295,7 +294,9 @@ module.exports = {
         }
 
         return command;
-=======
+    }
+
+    /*
      * Cache polyglot parsed file.
      *
      * @param file
@@ -316,7 +317,6 @@ module.exports = {
         fs.writeFileSync(cacheFile, code);
 
         return cacheFile;
->>>>>>> 75d6a5e0a4f674f80f0098e8d77bdbf22f0c9221
     },
 
     /**
