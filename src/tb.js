@@ -11,12 +11,12 @@ const fs = require('fs'),
       unsafe = require('ini').safe,
       stringify = require('ini').stringify,
       basename = require("path").basename,
+      extname = require('path').extname,
       dirname = require("path").dirname,
       resolve = require("path").resolve,
       exists = require('command-exists'),
       spawn = require("child_process").spawn,
       merge = require('object-merge'),
-      mkdir = require('shelljs').mkdir,
       join = require("path").join,
       util = require("./util");
 
@@ -38,17 +38,21 @@ module.exports = {
     /**
      *
      */
+<<<<<<< HEAD
     programs: {},
 
     /**
      *
      */
     REGEXP_FILE: '[\\._a-z0-9\\/\\\\]+',
+=======
+    REGEXP_FILE: '[\\.\\-_a-z0-9\\/\\\\ ]+',
+>>>>>>> 75d6a5e0a4f674f80f0098e8d77bdbf22f0c9221
 
     /**
      *
      */
-    REGEXP_FEATURE: '[\\._a-z0-9\\/\\\\]+',
+    REGEXP_FEATURE: '[\\.\\-_a-z0-9\\/\\\\]+',
 
     /**
      * Run ndev module package.json scripts.
@@ -108,7 +112,7 @@ module.exports = {
         var cacheDir = join(this.env.cache, md5(file));
         var cacheFile = join(cacheDir, basename(file));
 
-        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+        if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
         var code = stringify(data, {whitespace: false});
 
@@ -198,7 +202,12 @@ module.exports = {
         while (polyglot = pattern.exec(raw)) {
             polyglot.file = join(path, polyglot[1]);
             var replace = util.escapeBracket(polyglot[0]);
-            var command = 'polyglot ' + this.parsePolyglot(polyglot.file);
+            var command = 'polyglot ';
+            if (extname(polyglot[1]) == '.ini') {
+                command += this.parsePolyglot(polyglot.file);
+            } else {
+                command += this.forgePolyglot(path, polyglot[1]);
+            }
             raw = raw.replace(new RegExp(replace, 'g'), command);
         }
 
@@ -258,7 +267,7 @@ module.exports = {
         var cacheDir = join(this.env.cache, md5(file));
         var cacheFile = join(cacheDir, basename(file));
 
-        if (!fs.existsSync(cacheDir)) { mkdir('-p', cacheDir); }
+        if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
         var code = stringify(data, {whitespace: false});
 
@@ -272,6 +281,7 @@ module.exports = {
     },
 
     /**
+<<<<<<< HEAD
      *
      * @param program
      */
@@ -285,6 +295,28 @@ module.exports = {
         }
 
         return command;
+=======
+     * Cache polyglot parsed file.
+     *
+     * @param file
+     * @param data
+     */
+    forgePolyglot: function (path, file) {
+        var cacheDir = join(this.env.cache, md5('(forge)' + path + '/' + file));
+        var cacheFile = join(cacheDir, 'polyglot.ini');
+        var forgeFile = join(__dirname, '../ini/template/forge-polyglot.ini');
+
+        if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
+
+        var code = fs.readFileSync(forgeFile, 'utf-8');
+
+        code = code.replace('{{file}}', file);
+        code = code.replace('{{log}}', join(path, file + ".log"));
+
+        fs.writeFileSync(cacheFile, code);
+
+        return cacheFile;
+>>>>>>> 75d6a5e0a4f674f80f0098e8d77bdbf22f0c9221
     },
 
     /**

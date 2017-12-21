@@ -1,14 +1,15 @@
 /*!
- * ndev-framework
+ * TestBoard
  * Copyright(c) 2016-2017 Javanile.org
  * MIT Licensed
  */
 
-var fs = require("fs");
-var join = require("path").join;
-var spawn = require("child_process").spawn;
-var exec = require("child_process").execSync;
-var col = require("colors");
+var fs = require("fs"),
+    join = require("path").join,
+    spawn = require("child_process").spawn,
+    mkdir = require('shelljs').mkdir,
+    exec = require("child_process").execSync,
+    col = require("colors");
 
 module.exports = {
 
@@ -174,5 +175,26 @@ module.exports = {
      */
     escapeBracket: function (str) {
         return str.replace('(', '\\(').replace(')', '\\)');
+    },
+
+    /**
+     *
+     */
+    copy: function (src, dest) {
+        if (!fs.existsSync(src)) {
+            return false;
+        }
+        var data = fs.readFileSync(src, 'utf-8');
+        fs.writeFileSync(dest, data);
+    },
+
+    /**
+     *
+     */
+    mkdir: function (dir) {
+        if (fs.existsSync(dir)) {
+            return false;
+        }
+        return mkdir('-p', dir);
     }
 };
