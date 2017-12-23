@@ -48,12 +48,46 @@ module.exports = {
     /**
      *
      */
-    REGEXP_FILE: '[\\.\\-_a-z0-9\\/\\\\ ]+',
+    participantsList: [],
 
     /**
      *
      */
+    participantsFile: null,
+
+    /**
+     *
+     */
+    participantsCacheDir: null,
+
+    /**
+     *
+     */
+    participantsCacheFile: null,
+
+    /**
+     *
+     *
+     */
+    REGEXP_FILE: '[\\.\\-_a-z0-9\\/\\\\ ]+',
+
+    /**
+     *
+     *
+     */
     REGEXP_FEATURE: '[\\.\\-_a-z0-9\\/\\\\]+',
+
+    /**
+     *
+     *
+     */
+    REGEXP_CONSTANT: '[_a-z][_a-z0-9]*',
+
+    /**
+     *
+     *
+     */
+    REGEXP_PARTICIPANTS: '[^\\(\\)]*',
 
     /**
      * Run ndev module package.json scripts.
@@ -64,6 +98,10 @@ module.exports = {
         this.files = {};
         this.testcase = file;
         this.programs = {};
+        this.participantsList = [];
+        this.participantsFile = null;
+        this.participantsCacheDir = null;
+        this.participantsCacheFile = null;
 
         return this.xboard(this.parseTestCase(file), callback);
     },
@@ -89,7 +127,7 @@ module.exports = {
             deps.push(join(__dirname, '../ini/winboard.ini'))
         }
 
-        this.resolveDependency(file, deps);
+        this.resolveDependency(file, deps, 'xboard');
 
         var data = {};
         for (var i in deps) {
@@ -97,6 +135,7 @@ module.exports = {
                 var raw = this.read(deps[i]);
                 raw = this.resolveResource(dirname(deps[i]), raw);
                 raw = this.resolvePolyglot(dirname(deps[i]), raw);
+                raw = this.resolveParticipants(deps[i], raw);
                 this.save(deps[i], raw);
                 data = merge(data, parse(raw));
             }
@@ -111,19 +150,26 @@ module.exports = {
      * @param data
      */
     cacheTestCase: function (file, data) {
-        var cacheDir = join(this.env.cache, md5(file));
-        var cacheFile = join(cacheDir, basename(file));
+        let cacheDir = join(this.env.cache, md5(file));
+        let cacheFile = join(cacheDir, basename(file));
 
         if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
-        var code = stringify(data, {whitespace: false});
+        // build tourney file
+        if (this.participantsCacheFile && '"'+this.participantsCacheFile+'"' === data['/tourneyFile']) {
+            util.mkdir(this.participantsCacheDir);
+            let data = '-participants {' + this.participantsList.join('\n') + '\n}\n-results ""';
+            fs.writeFileSync(this.participantsCacheFile, data);
+        }
+
+        let code = stringify(data, {whitespace: false});
 
         // fix string quote bugs
-        code = code.replace(/("\\")|(\\"")/g, '"')
+        code = code.replace(/("\\")|(\\"")/g, '"');
 
         // fix xboard implicit true properties
-        var implicit = ['cp', 'firstXBook', 'secondXBook'];
-        for (var i in implicit) {
+        let implicit = ['cp', 'firstXBook', 'secondXBook', 'noGUI'];
+        for (let i in implicit) {
             code = code.replace(
                 new RegExp('/' + implicit[i] + '=true\n', 'g'),
                 '/' + implicit[i] + '\n'
@@ -142,25 +188,31 @@ module.exports = {
      * @param file
      * @param deps
      */
-    resolveDependency: function (file, deps) {
+    resolveDependency: function (file, deps, source) {
         if (!fs.existsSync(file)) { return; }
 
-        var raw = this.read(file);
-        var path = dirname(file);
-        var info, pattern;
+        let raw = this.read(file);
+        let path = dirname(file);
+        let info, pattern;
 
         pattern = new RegExp('^@extends\\((' + this.REGEXP_FILE + ')\\)', 'gmi');
         while (info = pattern.exec(raw)) {
             info.file = join(path, info[1]);
             raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
-            this.resolveDependency(info.file, deps);
+            this.resolveDependency(info.file, deps, source);
         }
 
         pattern = new RegExp('^@feature\\((' + this.REGEXP_FEATURE + ')\\)', 'gmi');
         while (info = pattern.exec(raw)) {
-            info.file = join(path, info[1].replace());
+            info.file = join(__dirname, '../ini/feature', source,  info[1] + '.ini');
+            console.log(info.file);
+            if (!fs.existsSync(info.file)) {
+                util.exitErrorFile('feature-not-found', {
+                    feature: info[1],
+                });
+            }
             raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
-            this.resolveDependency(info.file, deps);
+            this.resolveDependency(info.file, deps, source);
         }
 
         deps.push(file);
@@ -198,13 +250,13 @@ module.exports = {
      * @returns {*}
      */
     resolvePolyglot: function (path, raw) {
-        var polyglot, pattern;
+        let polyglot, pattern;
 
         pattern = new RegExp('@polyglot\\((' + this.REGEXP_FILE + ')\\)', 'gi');
         while (polyglot = pattern.exec(raw)) {
             polyglot.file = join(path, polyglot[1]);
-            var replace = util.escapeBracket(polyglot[0]);
-            var command = 'polyglot ';
+            let replace = util.escapeBracket(polyglot[0]);
+            let command = 'polyglot ';
             if (extname(polyglot[1]) == '.ini') {
                 command += this.parsePolyglot(polyglot.file);
             } else {
@@ -217,11 +269,44 @@ module.exports = {
     },
 
     /**
+     * Resolve polyglot resource.
+     *
+     * @param path
+     * @param raw
+     * @returns {*}
+     */
+    resolveParticipants: function (file, raw) {
+        let participants, pattern;
+
+        this.participantsFile = file;
+        this.participantsCacheDir = join(this.env.cache, md5('(participants):' + file));
+        this.participantsCacheFile = join(this.participantsCacheDir, 'tourney.trn');
+
+        pattern = new RegExp('@participants\\((' + this.REGEXP_PARTICIPANTS + ')\\)', 'gim');
+        while (participants = pattern.exec(raw)) {
+            this.participantsList = [];
+            let list = participants[1].trim().replace(/\n/g, ",").split(',');
+
+            for (let i in list) {
+                if (list[i]) {
+                    this.participantsList.push(list[i].trim());
+                }
+            }
+
+            let replace = util.escapeBracket(participants[0]);
+            raw = raw.replace(new RegExp(replace, 'gim'), '');
+            raw += '\n/tourneyFile=' + this.participantsCacheFile + '\n';
+        }
+
+        return raw;
+    },
+
+    /**
      *
      * @param data
      */
     fixValues: function (data) {
-        for (i in data) {
+        for (let i in data) {
             if (typeof data[i] == 'string' && isNaN(parseInt(data[i]))) {
                 data[i] = '"' + data[i] + '"';
             }
@@ -244,13 +329,13 @@ module.exports = {
      * @returns {{}}
      */
     loadPolyglot: function (file) {
-        var deps = [join(__dirname, '../ini/polyglot.ini')];
+        let data = {};
+        let deps = [join(__dirname, '../ini/polyglot.ini')];
 
-        this.resolveDependency(file, deps);
+        this.resolveDependency(file, deps, 'polyglot');
 
-        var data = {};
-        for (var i in deps) {
-            var raw = this.read(deps[i]);
+        for (let i in deps) {
+            let raw = this.read(deps[i]);
             raw = this.resolveResource(dirname(deps[i]), raw);
             raw = this.save(deps[i], raw);
             data = merge(data, parse(raw));
@@ -266,8 +351,8 @@ module.exports = {
      * @param data
      */
     cachePolyglot: function (file, data) {
-        var cacheDir = join(this.env.cache, md5(file));
-        var cacheFile = join(cacheDir, basename(file));
+        let cacheDir = join(this.env.cache, md5(file));
+        let cacheFile = join(cacheDir, basename(file));
 
         if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
@@ -306,13 +391,13 @@ module.exports = {
      * @param data
      */
     forgePolyglot: function (path, file) {
-        var cacheDir = join(this.env.cache, md5('(forge)' + path + '/' + file));
-        var cacheFile = join(cacheDir, 'polyglot.ini');
-        var forgeFile = join(__dirname, '../ini/template/forge-polyglot.ini');
+        let cacheDir = join(this.env.cache, md5('(forge)' + path + '/' + file));
+        let cacheFile = join(cacheDir, 'polyglot.ini');
+        let forgeFile = join(__dirname, '../ini/template/forge-polyglot.ini');
 
         if (!fs.existsSync(cacheDir)) { util.mkdir(cacheDir); }
 
-        var code = fs.readFileSync(forgeFile, 'utf-8');
+        let code = fs.readFileSync(forgeFile, 'utf-8');
 
         code = code.replace('{{file}}', file);
         code = code.replace('{{log}}', join(path, file + ".log"));
@@ -323,15 +408,36 @@ module.exports = {
     },
 
     /**
+     *
+     */
+    resolveConstant: function (file, raw) {
+        let info, pattern;
+
+        pattern = new RegExp('@constant\\((' + this.REGEXP_CONSTANT + ')\\)', 'gi');
+        while (info = pattern.exec(raw)) {
+            var value = '';
+            switch (info[1]) {
+                case 'FILENAME': value = file; break;
+            }
+            raw = raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), value);
+        }
+
+        return raw;
+    },
+
+    /**
      * Load file and save content in runtime cache.
      *
      * @param file
      * @returns {*}
      */
     read: function (file) {
-        if (typeof this.files[file] == 'undefined') {
-            this.save(file, fs.readFileSync(file, 'utf-8'));
+        if (typeof this.files[file] === 'undefined') {
+            let raw = fs.readFileSync(file, 'utf-8');
+            raw = this.resolveConstant(file, raw);
+            this.save(file, raw);
         }
+
         return this.files[file];
     },
 
@@ -339,22 +445,24 @@ module.exports = {
      * Update file content in runtime cache.
      *
      * @param file
+     * @param data
      * @returns {*}
      */
-    save: function (file, raw) {
-        this.files[file] = raw;
+    save: function (file, data) {
+        this.files[file] = data;
+
         return this.files[file];
     },
 
     /**
+     * Run WinBoard/XBoard task.
      *
-     * @param env
      * @param input
      * @returns {*}
      */
     xboard: function (input) {
-        var xboard = this.resolveProgram('xboard1');
-        var params = [ '@' + input ];
+        let xboard = this.resolveProgram('xboard');
+        let params = [ '@' + input ];
 
         return this.exec(xboard, params);
     },
@@ -381,7 +489,7 @@ module.exports = {
 
         // Attach exit handler
         wrapper.on("exit", function (code) {
-            var code = code.toString();
+            //var code = code.toString();
         });
     }
 };
