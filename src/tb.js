@@ -4,21 +4,21 @@
  * MIT Licensed
  */
 
-const fs = require('fs'),
-      os = require('os'),
-      md5 = require('md5'),
-      parse = require('ini').parse,
-      unsafe = require('ini').safe,
-      stringify = require('ini').stringify,
-      basename = require("path").basename,
-      extname = require('path').extname,
-      dirname = require("path").dirname,
-      resolve = require("path").resolve,
-      exists = require('command-exists').sync,
-      spawn = require("child_process").spawn,
-      merge = require('object-merge'),
-      join = require("path").join,
-      util = require("./util");
+const fs = require('fs')
+    , os = require('os')
+    , md5 = require('md5')
+    , parse = require('ini').parse
+    , unsafe = require('ini').safe
+    , stringify = require('ini').stringify
+    , basename = require("path").basename
+    , extname = require('path').extname
+    , dirname = require("path").dirname
+    , resolve = require("path").resolve
+    , exists = require('command-exists').sync
+    , spawn = require("child_process").spawn
+    , merge = require('object-merge')
+    , join = require("path").join
+    , util = require("./util")
 
 module.exports = {
 
@@ -27,7 +27,7 @@ module.exports = {
      */
     env: {
         cwd: process.cwd(),
-        cache: join(process.cwd(), '.testboard')
+        cache: join(process.cwd(), '.tb')
     },
 
     /**
@@ -43,7 +43,7 @@ module.exports = {
     /**
      *
      */
-    testcase: null,
+    currentTestCase: null,
 
     /**
      *
@@ -64,6 +64,21 @@ module.exports = {
      *
      */
     participantsCacheFile: null,
+
+    /**
+     *
+     */
+    lastParseIsTestCase: false,
+
+    /**
+     *
+     */
+    runSingleTestCase: true,
+
+    /**
+     * Count numner of test case.
+     */
+    runnedTestCase: 0,
 
     /**
      *
@@ -90,33 +105,48 @@ module.exports = {
     REGEXP_PARTICIPANTS: '[^\\(\\)]*',
 
     /**
-     * Run ndev module package.json scripts.
+     * Run test case.
      *
      * @param args
      */
     runTestCase: function (file, callback) {
         this.files = {};
-        this.testcase = file;
+        this.currentTestCase = file;
         this.programs = {};
         this.participantsList = [];
         this.participantsFile = null;
         this.participantsCacheDir = null;
         this.participantsCacheFile = null;
 
-        return this.xboard(this.parseTestCase(file), callback);
+        let test = this.parseTestCase(file)
+
+        if (this.lastParseIsTestCase) {
+            this.runnedTestCase++
+            util.info(`#${this.runnedTestCase} '${file}' run...`);
+            return this.xboard(test, callback);
+        }
+
+        if (this.runSingleTestCase) {
+            util.err(`Wrong test case '${file}' use '@feature(test)' directive.`);
+        }
     },
 
     /**
-     * Run ndev module package.json scripts.
+     * Parse file than store in cache.
      *
      * @param args
      */
     parseTestCase: function (file) {
-        return this.cacheTestCase(file, this.loadTestCase(resolve(file)));
+        this.lastParseIsTestCase = false
+        let data = this.loadTestCase(resolve(file));
+        if (typeof data['__IS_TEST__'] == 'undefined') { return }
+        this.lastParseIsTestCase = true;
+        delete data['__IS_TEST__']
+        return this.cacheTestCase(file, data);
     },
 
     /**
-     * Run ndev module package.json scripts.
+     * Load file data and resolve dependencies.
      *
      * @param args
      */
@@ -193,26 +223,26 @@ module.exports = {
 
         let raw = this.read(file);
         let path = dirname(file);
-        let info, pattern;
 
-        pattern = new RegExp('^@extends\\((' + this.REGEXP_FILE + ')\\)', 'gmi');
-        while (info = pattern.exec(raw)) {
-            info.file = join(path, info[1]);
-            raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
-            this.resolveDependency(info.file, deps, source);
+        let patternExtends = new RegExp('^@extends\\((' + this.REGEXP_FILE + ')\\)', 'gmi');
+        let infoExtendsAll = util.matchAll(patternExtends, raw);
+        for (let i = 0; i < infoExtendsAll.length; i++) {
+            let infoExtendsFile = join(path, infoExtendsAll[i][1]);
+            raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(infoExtendsAll[i][0]), 'g'), ''));
+            this.resolveDependency(infoExtendsFile, deps, source);
         }
 
-        pattern = new RegExp('^@feature\\((' + this.REGEXP_FEATURE + ')\\)', 'gmi');
-        while (info = pattern.exec(raw)) {
-            info.file = join(__dirname, '../ini/feature', source,  info[1] + '.ini');
-            console.log(info.file);
-            if (!fs.existsSync(info.file)) {
+        let patternFeature = new RegExp('^@feature\\((' + this.REGEXP_FEATURE + ')\\)', 'gmi');
+        let infoFeatureAll = util.matchAll(patternFeature, raw);
+        for (let i = 0; i < infoFeatureAll.length; i++) {
+            let infoFeatureFile = join(__dirname, '../ini/feature', source, infoFeatureAll[i][1] + '.ini');
+            if (!fs.existsSync(infoFeatureFile)) {
                 util.exitErrorFile('feature-not-found', {
-                    feature: info[1],
+                    feature: infoFeatureAll[i][1],
                 });
             }
-            raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), ''));
-            this.resolveDependency(info.file, deps, source);
+            raw = this.save(file, raw.replace(new RegExp(util.escapeBracket(infoFeatureAll[i][0]), 'g'), ''));
+            this.resolveDependency(infoFeatureFile, deps, source);
         }
 
         deps.push(file);
@@ -372,12 +402,12 @@ module.exports = {
      * @param command
      */
     resolveProgram: function (command) {
-        var program = command.split(' ');
+        let program = command.split(' ');
 
         if (!exists(program)) {
             util.exitErrorFile('program-not-found', {
                 program: program,
-                testcase: this.testcase
+                testcase: this.currentTestCase
             });
         }
 
@@ -408,18 +438,18 @@ module.exports = {
     },
 
     /**
-     *
+     * Resolve constants into file contents.
      */
     resolveConstant: function (file, raw) {
-        let info, pattern;
+        let patternConstant = new RegExp('@constant\\((' + this.REGEXP_CONSTANT + ')\\)', 'gi');
+        let infoConstantAll = util.matchAll(patternConstant, raw)
 
-        pattern = new RegExp('@constant\\((' + this.REGEXP_CONSTANT + ')\\)', 'gi');
-        while (info = pattern.exec(raw)) {
-            var value = '';
-            switch (info[1]) {
+        for (let i = 0; i < infoConstantAll.length; i++) {
+            let value = '';
+            switch (infoConstantAll[i][1]) {
                 case 'FILENAME': value = file; break;
             }
-            raw = raw.replace(new RegExp(util.escapeBracket(info[0]), 'g'), value);
+            raw = raw.replace(new RegExp(util.escapeBracket(infoConstantAll[i][0]), 'g'), value);
         }
 
         return raw;
@@ -450,46 +480,43 @@ module.exports = {
      */
     save: function (file, data) {
         this.files[file] = data;
-
         return this.files[file];
     },
 
     /**
-     * Run WinBoard/XBoard task.
+     * Run WinBoard/XBoard program.
      *
      * @param input
      * @returns {*}
      */
-    xboard: function (input) {
+    xboard: function (input, cb) {
         let xboard = this.resolveProgram('xboard');
-        let params = [ '@' + input ];
-
-        return this.exec(xboard, params);
+        return this.spawn(xboard, [ '@' + input ], cb);
     },
 
     /**
-     * Run terminal command.
+     * Run program into terminal.
      *
      * @param env
      * @param command
      * @param params
      */
-    exec: function (command, params) {
-        var wrapper = spawn(command, params);
+    spawn: function (program, args, cb) {
+        let proc = spawn(program, args);
 
         // Attach stdout handler
-        wrapper.stdout.on("data", function (data) {
+        proc.stdout.on('data', (data) => {
             process.stdout.write(data.toString());
         });
 
         // Attach stderr handler
-        wrapper.stderr.on("data", function (data) {
+        proc.stderr.on('data', (data) => {
             process.stdout.write(data.toString());
         });
 
         // Attach exit handler
-        wrapper.on("exit", function (code) {
-            //var code = code.toString();
+        proc.on('exit', (code) => {
+            return typeof cb == 'function' ? cb(code) : code
         });
     }
 };

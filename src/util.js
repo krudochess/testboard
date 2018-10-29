@@ -4,16 +4,16 @@
  * MIT Licensed
  */
 
-var fs = require("fs"),
-    join = require("path").join,
-    spawn = require("child_process").spawn,
-    parse = require('ini').parse,
-    unsafe = require('ini').safe,
-    stringify = require('ini').stringify,
-    mkdir = require('shelljs').mkdir,
-    exec = require("child_process").execSync,
-    col = require("colors"),
-    os = require('os');
+const fs = require("fs")
+    , join = require("path").join
+    , spawn = require("child_process").spawn
+    , parse = require('ini').parse
+    , unsafe = require('ini').safe
+    , stringify = require('ini').stringify
+    , mkdir = require('shelljs').mkdir
+    , exec = require("child_process").execSync
+    , col = require("colors")
+    , os = require('os')
 
 module.exports = {
 
@@ -31,13 +31,8 @@ module.exports = {
      *
      * @param msg
      */
-    info: function (key, msg, tokens) {
-        console.log(
-            this.indent(
-                col.yellow.bold("<<info>> "+key+": "),
-                col.white(this.applyTokens(msg, tokens))
-            )
-        );
+    info: function (msg, tokens) {
+        console.log(col.yellow.bold('[INFO]'), this.applyTokens(msg, tokens));
     },
 
     /**
@@ -52,10 +47,8 @@ module.exports = {
             case "&require-module": msg = "Missing module name, type 'ndev --help ${cmd}'."; break;
             case "&cmd-undefined": msg = "Undefined command '${cmd}', type 'ndev --help'."; break;
         }
-        console.log(
-            this.indent(col.red.bold("<<error>> "),
-            col.white(this.applyTokens(msg, tokens)))
-        );
+
+        console.log(col.red.bold('[ERROR]'), this.applyTokens(msg, tokens));
     },
 
     /**
@@ -215,7 +208,7 @@ module.exports = {
      *
      */
     updateGlobal: function (section, key, value) {
-        var globalDir = join(os.homedir(), '.testboard');
+        var globalDir = join(os.homedir(), '.tb');
         var globalFile = join(globalDir, 'global.ini');
 
         this.mkdir(globalDir);
@@ -231,5 +224,20 @@ module.exports = {
         global[section][key] = value;
 
         fs.writeFileSync(globalFile, stringify(global));
+    },
+
+    /**
+     *
+     */
+    matchAll: function (regex, data) {
+        let matchs = [];
+
+        let match = regex.exec(data);
+        while (match != null) {
+            matchs.push(match);
+            match = regex.exec(data);
+        }
+
+        return matchs;
     }
 };

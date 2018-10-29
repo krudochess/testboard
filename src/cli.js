@@ -4,10 +4,13 @@
  * MIT Licensed
  */
 
-var fs = require("fs"),
-    path = require("path"),
-    util = require("./util"),
-    tb = require("./tb");
+const fs = require('fs')
+    , join = require('path').join
+    , dirname = require('path').dirname
+    , extname = require('path').extname
+    , glob = require('glob')
+    , util = require('./util')
+    , tb = require('./tb');
 
 module.exports = {
 
@@ -19,12 +22,23 @@ module.exports = {
     run: function(args, callback) {
         if (!args || args.length === 0) { return util.err("&require-command"); }
 
+        // get path to run
+        var path = null;
+        for (var i in args) {
+            if (!args.hasOwnProperty(i)) { continue; }
+            if (args[i].charAt(0) != "-") {
+                path = args[i];
+                args.splice(i, 1);
+                break;
+            }
+        }
+
         // process init
         var init = args.indexOf("--init");
-        if (init > -1 && !fs.existsSync(file) && path.extname(file) == '.ini') {
-            util.mkdir(path.dirname(file));
-            util.copy(path.join(__dirname, '../ini/template/init.ini'), file);
-            return util.info('Test case create', file);
+        if (init > -1 && !fs.existsSync(path) && extname(path) == '.ini') {
+            util.mkdir(dirname(file));
+            util.copy(join(__dirname, '../ini/template/init.ini'), path);
+            return util.info('Create test case', file);
         }
 
         // process program
@@ -33,36 +47,32 @@ module.exports = {
             return this.addProgram(args, program);
         }
 
-        // get file to run
-        var file = null;
-        for (var i in args) {
-            if (!args.hasOwnProperty(i)) { continue; }
-            if (args[i].charAt(0) != "-") {
-                file = args[i];
-                args.splice(i, 1);
-                break;
-            }
-        }
-
         // prepare environment
         tb.env = {
             cwd: process.cwd(),
-            cache: path.join(process.cwd(), '.testboard'),
-            init: init > -1
+            cache: join(process.cwd(), '.tb'),
         };
 
         // check file exists
-        if (!fs.existsSync(file)) {
-            return util.err("test case not found: "+file);
+        if (!fs.existsSync(path)) {
+            return util.err(`Test case '${path}' or directory not found.`);
         }
 
         // run single test case
-        if (fs.lstatSync(file).isFile()) {
-            return tb.runTestCase(file);
+        if (fs.lstatSync(path).isFile()) {
+            return tb.runTestCase(path);
         }
 
-        // run multiple test case into directory
-        console.log("TODO: implement multimple test case on directory.");
+        // run multiple tests into folder
+        tb.runSingleTestCase = false;
+        glob("**/*.ini", { cwd: path }, (err, files) => {
+            for (let i in files) {
+                tb.runTestCase(join(path, files[i]))
+            }
+            if (tb.runnedTestCase == 0) {
+                util.err(`No test case found into '${path}' directory.`);
+            }
+        })
     },
 
     /**
@@ -85,9 +95,9 @@ module.exports = {
      * @param args
      */
     getHelp: function (args) {
-        var help = path.join(__dirname, "../help/help.txt");
+        var help = join(__dirname, "../help/help.txt");
         if (!args[0]) { console.log(fs.readFileSync(help)+""); }
-        help = path.join(__dirname, "../help/" + args[0] + ".txt");
+        help = join(__dirname, "../help/" + args[0] + ".txt");
         if (fs.existsSync(help)) { return console.log(fs.readFileSync(help)+""); }
         return util.err("&cmd-undefined", { cmd: args[0] });
     },
@@ -98,7 +108,7 @@ module.exports = {
      * @param args
      */
     getVersion: function () {
-        var info = JSON.parse(fs.readFileSync(path.join(__dirname, "../package.json")), "utf8");
+        var info = JSON.parse(fs.readFileSync(join(__dirname, "../package.json")), "utf8");
         util.info("ndev-framework " + info.version, "developed by Francesco Bianco <bianco@javanile.org>");
         return info.name + "@" + info.version;
     }
