@@ -19,6 +19,7 @@ const fs = require('fs')
     , merge = require('object-merge')
     , join = require("path").join
     , util = require("./util")
+    , bnf = require('./bnf');
 
 module.exports = {
 
@@ -39,6 +40,11 @@ module.exports = {
      *
      */
     programs: {},
+
+    /**
+     *
+     */
+    asserts: [],
 
     /**
      *
@@ -102,6 +108,12 @@ module.exports = {
      *
      *
      */
+    REGEXP_ASSERT: '[ \\.a-z0-9]*',
+
+    /**
+     *
+     *
+     */
     REGEXP_PARTICIPANTS: '[^\\(\\)]*',
 
     /**
@@ -113,6 +125,7 @@ module.exports = {
         this.files = {};
         this.currentTestCase = file;
         this.programs = {};
+        this.asserts = [];
         this.participantsList = [];
         this.participantsFile = null;
         this.participantsCacheDir = null;
@@ -123,7 +136,18 @@ module.exports = {
         if (this.lastParseIsTestCase) {
             this.runnedTestCase++
             util.info(`#${this.runnedTestCase} '${file}' run...`);
-            return this.xboard(test, callback);
+            //this.xboard(test, callback);
+
+            let scope = { a: 10 };
+            for (let i in this.asserts) {
+                console.log('assert:', this.asserts[i]);
+                let result = bnf.assert(this.asserts[i], scope)
+                console.log('result:', result);
+            }
+
+            console.log(this.asserts);
+
+            return
         }
 
         if (this.runSingleTestCase) {
@@ -163,6 +187,7 @@ module.exports = {
         for (var i in deps) {
             if (deps.hasOwnProperty(i)) {
                 var raw = this.read(deps[i]);
+                raw = this.loadAsserts(deps[i], raw);
                 raw = this.resolveResource(dirname(deps[i]), raw);
                 raw = this.resolvePolyglot(dirname(deps[i]), raw);
                 raw = this.resolveParticipants(deps[i], raw);
@@ -326,6 +351,32 @@ module.exports = {
             let replace = util.escapeBracket(participants[0]);
             raw = raw.replace(new RegExp(replace, 'gim'), '');
             raw += '\n/tourneyFile=' + this.participantsCacheFile + '\n';
+        }
+
+        return raw;
+    },
+
+    /**
+     * Resolve polyglot resource.
+     *
+     * @param path
+     * @param raw
+     * @returns {*}
+     */
+    loadAsserts: function (path, raw) {
+        let patternAssert = new RegExp('@assert\\((' + this.REGEXP_ASSERT + ')\\)', 'gmi');
+        let infoAssertAll = util.matchAll(patternAssert, raw)
+
+        for (let i = 0; i < infoAssertAll.length; i++) {
+            try {
+                bnf.verify(infoAssertAll[i][1])
+            } catch (ex) {
+                util.err(`Assert syntax error on '${path}'`)
+                console.log(ex.message.split("\n").slice(1).join("\n"))
+                process.exit(2);
+            }
+            this.asserts.push(infoAssertAll[i][1])
+            raw = raw.replace(new RegExp(util.escapeBracket(infoAssertAll[i][0]), 'g'), '');
         }
 
         return raw;

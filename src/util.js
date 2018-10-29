@@ -22,15 +22,6 @@ module.exports = {
      *
      * @param msg
      */
-    log: function (msg, tokens) {
-        return this.indent("(ndev)  ", this.applyTokens(msg, tokens));
-    },
-
-    /**
-     * Print info message.
-     *
-     * @param msg
-     */
     info: function (msg, tokens) {
         console.log(col.yellow.bold('[INFO]'), this.applyTokens(msg, tokens));
     },
