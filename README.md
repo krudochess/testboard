@@ -14,3 +14,4 @@ add stockfishjs vs.
 create match sockfuishjs vs stockfish originale. 
 
 
+add garbochess js. 
