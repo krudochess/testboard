@@ -196,7 +196,7 @@ module.exports = {
             }
         }
 
-        return this.fixValues(data);
+        return this.resolveVariables(this.fixValues(data));
     },
 
     /**
@@ -354,6 +354,21 @@ module.exports = {
         }
 
         return raw;
+    },
+
+    /**
+     *
+     * @param data
+     */
+    resolveVariables: function (data) {
+        for (let key in data) {
+            if (typeof data[key] != 'string' || !data[key].match(new RegExp('\\$[a-z_][a-z0-9_]*', 'gi'))) {
+                continue;
+            }
+            console.log(key + ':', data[key]);
+
+            process.exit();
+       }
     },
 
     /**
