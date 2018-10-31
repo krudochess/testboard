@@ -2,7 +2,7 @@
 const fs = require("fs")
     , join = require('path').join
     , jison = require("jison")
-    , grammar = fs.readFileSync(join(__dirname, 'assert.jison'), "utf8")
+    , grammar = fs.readFileSync(join(__dirname, '../jison/assert'), 'utf8')
     , parser = new jison.Parser(grammar)
     , tb = require('./tb')
 

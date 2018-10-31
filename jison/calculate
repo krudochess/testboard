@@ -1,19 +1,42 @@
 %lex
 
 %%
-\s+                     /* skip whitespace */
-"firstChessProgram"     return 'FCP'
-"win"                   return 'WIN'
-"win"                   return 'LOSE'
-"draw"                  return 'DRAW'
-<<EOF>>                 return 'EOF';
+\s+                         /* skip whitespace */
+[0-9]+("."[0-9]+)?\b        return 'NUMBER';
+\$[A-Za-z_][0-9A-Za-z_]*    return 'VARIABLE';
+"*"                         return '*';
+"/"                         return '/';
+"-"                         return '-';
+"+"                         return '+';
+"^"                         return '^';
+"("                         return '(';
+")"                         return ')';
+"PI"                        return 'PI';
+"E"                         return 'E';
+<<EOF>>                     return 'EOF';
 
 /lex
 
-%start assert
+%left '+' '-'
+%left '*' '/'
+%left '^'
+%left UMINUS
 
-%% /* language grammar */
+%start calculate
 
-assert : expr EOF { return $1; };
+%%
 
-expr : 'FCP' 'WIN' { return yy.a; };
+calculate : expr EOF { return $1; } ;
+
+expr : expr '+' expr            { $$ = $1 + $3; }
+     | expr '-' expr            { $$ = $1 - $3; }
+     | expr '*' expr            { $$ = $1 * $3; }
+     | expr '/' expr            { $$ = $1 / $3; }
+     | expr '^' expr            { $$ = Math.pow($1, $3); }
+     | '-' expr %prec UMINUS    { $$ = -$2; }
+     | '(' expr ')'             { $$ = $2; }
+     | NUMBER                   { $$ = Number(yytext); }
+     | VARIABLE                 { let value = parseFloat(yy[yytext]); $$ = isNaN(value) ? yy[yytext] : value; }
+     | E                        { $$ = Math.E; }
+     | PI                       { $$ = Math.PI; }
+     ;

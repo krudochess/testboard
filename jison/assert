@@ -12,7 +12,7 @@
 
 %start assert
 
-%% /* language grammar */
+%%
 
 assert : expr EOF { return $1; };
 

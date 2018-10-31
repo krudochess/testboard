@@ -19,7 +19,8 @@ const fs = require('fs')
     , merge = require('object-merge')
     , join = require("path").join
     , util = require("./util")
-    , bnf = require('./bnf');
+    , bnfAssert = require('./bnf-assert')
+    , bnfCalculate = require('./bnf-calculate')
 
 module.exports = {
 
@@ -112,6 +113,16 @@ module.exports = {
 
     /**
      *
+     */
+    REGEXP_VARIABLE: '\\$[a-z_][a-z0-9_]*',
+
+    /**
+     *
+     */
+    REGEXP_CALCULATE: '[-\\+\\.\\$a-z0-9_ ]+',
+
+    /**
+     *
      *
      */
     REGEXP_PARTICIPANTS: '[^\\(\\)]*',
@@ -196,7 +207,7 @@ module.exports = {
             }
         }
 
-        return this.resolveVariables(this.fixValues(data));
+        return this.fixValues(this.resolveExpressions(data));
     },
 
     /**
@@ -360,15 +371,98 @@ module.exports = {
      *
      * @param data
      */
-    resolveVariables: function (data) {
+    resolveExpressions: function (data) {
         for (let key in data) {
-            if (typeof data[key] != 'string' || !data[key].match(new RegExp('\\$[a-z_][a-z0-9_]*', 'gi'))) {
-                continue;
-            }
-            console.log(key + ':', data[key]);
+            data[key] = this.resolveVariables(data[key], data, 0)
+        }
 
-            process.exit();
-       }
+        return data
+    },
+
+    /**
+     *
+     * @param data
+     */
+    resolveVariables: function (expression, data, depth) {
+        let patternVariables = new RegExp(this.REGEXP_VARIABLE, 'gi')
+        let infoVariablesAll = util.matchAll(patternVariables, expression)
+
+        let count = 0
+        let values = {}
+        let variables = []
+        for (let i in infoVariablesAll) {
+            if (infoVariablesAll.hasOwnProperty(i)) {
+                let variable = infoVariablesAll[i][0]
+                values[variable] = this.resolveVariable(variable, data, depth)
+                variables.push(variable)
+                count++
+            }
+        }
+
+        expression = this.resolveCalculate(expression, values)
+
+        if (count > 0) {
+            variables.sort((a, b) => { return a.length - b.length || a.localeCompare(b) })
+
+            for (let i in variables) {
+                expression = expression.replace(new RegExp('\\' + variables[i], 'g'), values[variables[i]])
+            }
+        }
+
+        return expression
+    },
+
+    /**
+     *
+     * @param variable
+     * @param data
+     * @param depth
+     */
+    resolveVariable: function (variable, data, depth) {
+        if (depth > 100) {
+            util.err(`Stack Overflow`)
+        }
+
+        for (let key in data) {
+            if (data.hasOwnProperty(key) && key == variable) {
+                let value = this.resolveVariables(data[key], data, depth + 1);
+
+                return value
+            }
+        }
+
+        return 'nil0'
+    },
+
+    /**
+     * Resolve polyglot resource.
+     *
+     * @param path
+     * @param raw
+     * @returns {*}
+     */
+    resolveCalculate: function (expression, values) {
+        let patternCalculate = new RegExp('@calculate\\((' + this.REGEXP_CALCULATE + ')\\)', 'gmi');
+        let infoCalculateAll = util.matchAll(patternCalculate, expression)
+
+        for (let i in infoCalculateAll) {
+            if (infoCalculateAll.hasOwnProperty(i)) {
+                let value = ''
+                try {
+                    value = bnfCalculate.calculate(infoCalculateAll[i][1], values)
+                    console.log('value:', value)
+                } catch (ex) {
+                    util.err(`Calculate syntax error on '${expression}'`)
+                    //console.log(ex.message.split("\n").slice(1).join("\n"))
+                    console.log(ex.message)
+                    process.exit(2);
+                }
+
+                expression = expression.replace(new RegExp(util.escapeBracket(infoCalculateAll[i][0]), 'g'), value);
+            }
+        }
+
+        return expression;
     },
 
     /**

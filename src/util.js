@@ -162,7 +162,11 @@ module.exports = {
      *
      */
     escapeBracket: function (str) {
-        return str.replace('(', '\\(').replace(')', '\\)');
+        return str
+            //.replace('$', '\\$')
+            //.replace('(', '\\(')
+            //.replace(')', '\\)')
+            .replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
     },
 
     /**
