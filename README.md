@@ -1,5 +1,6 @@
 # TestBoard 🏁
-
+[![Build Status](https://travis-ci.org/krudochess/testboard.svg?branch=master)](https://travis-ci.org/krudochess/testboard)
+[![codecov](https://codecov.io/gh/krudochess/testboard/branch/master/graph/badge.svg)](https://codecov.io/gh/krudochess/testboard)
 
 ## Installation
 
