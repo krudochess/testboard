@@ -8,17 +8,6 @@
 
 ### Step #2 - Install XBoard/WinBoard
 
-|       Window 7/8/10       |              Ubuntu/Debian               |  Mac OSX  |
-|:-------------------------:|:----------------------------------------:|:---------:|
-| `npm install -g winboard` | `$ sudo apt-get install xboard polyglot` | `$ sudo apt-get install xboard polyglot` | 
-
-
-
-
-
-
-
-
 
 http://www.hep.by/gnu/xboard/Options.html#Options. 
 
