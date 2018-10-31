@@ -9,8 +9,9 @@
 ### Step #2 - Install XBoard/WinBoard
 
 |  Window 7/8/10  |  Ubuntu/Debian                           |  Mac OSX  |
-|-----------------|------------------------------------------|-----------|
-|                 | Install by command-line <br> `$ sudo apt-get install xboard polyglot` |           | 
+|:---------------:|:----------------------------------------:|:---------:|
+|                 | Install by command-line <br> 
+                    `$ sudo apt-get install xboard polyglot` |           | 
 
 
 
