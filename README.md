@@ -14,4 +14,11 @@ add stockfishjs vs.
 create match sockfuishjs vs stockfish originale. 
 
 
-add garbochess js. 
+add garbochess js.   
+
+use development configuration file called 'testboard.ini'
+
+help use to set xboard/winboard path or other custom configurations  
+sugget user to deliver 'testboard.ini.dist' on their project  
+
+
