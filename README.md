@@ -1,5 +1,25 @@
 # TestBoard 🏁
 
+
+## Installation
+
+
+### Step #1 - Install NodeJS
+
+### Step #2 - Install XBoard/WinBoard
+
+|  Window 7/8/10  |  Ubuntu/Debian                           |  Mac OSX  |
+|-----------------|------------------------------------------|-----------|
+|                 | Install by command-line <br> `$ sudo apt-get install xboard polyglot` |           | 
+
+
+
+
+
+
+
+
+
 http://www.hep.by/gnu/xboard/Options.html#Options. 
 
 
