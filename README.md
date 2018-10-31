@@ -1,4 +1,4 @@
-# 🏁 TestBoard 
+# TestBoard 🏁
 
 http://www.hep.by/gnu/xboard/Options.html#Options. 
 
