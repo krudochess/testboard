@@ -373,7 +373,7 @@ module.exports = {
      */
     resolveExpressions: function (data) {
         for (let key in data) {
-            data[key] = this.resolveVariables(data[key], data, 0)
+            data[key] = this.resolveExpression(data[key], data, 0)
         }
 
         return data
@@ -383,7 +383,7 @@ module.exports = {
      *
      * @param data
      */
-    resolveVariables: function (expression, data, depth) {
+    resolveExpression: function (expression, data, depth) {
         let patternVariables = new RegExp(this.REGEXP_VARIABLE, 'gi')
         let infoVariablesAll = util.matchAll(patternVariables, expression)
 
@@ -425,13 +425,13 @@ module.exports = {
 
         for (let key in data) {
             if (data.hasOwnProperty(key) && key == variable) {
-                let value = this.resolveVariables(data[key], data, depth + 1);
+                let value = this.resolveExpression(data[key], data, depth + 1);
 
                 return value
             }
         }
 
-        return 'nil0'
+        return ''
     },
 
     /**

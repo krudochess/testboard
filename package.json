@@ -16,6 +16,7 @@
     "scripts": {
         "test": "mocha --reporter spec --recursive | sed '/^\\s*$/d'",
         "coverage": "istanbul cover node_modules/mocha/bin/_mocha -- -R spec --recursive",
+        "codecov": "istanbul cover node_modules/mocha/bin/_mocha --report lcovonly -- -R spec && codecov",
         "info": "echo 'developed by Francesco Bianco'"
     },
     "devDependencies": {
