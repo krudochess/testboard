@@ -137,7 +137,6 @@ module.exports = {
      */
     exitErrorFile: function (file, tokens) {
         var msg = fs.readFileSync(join(__dirname, '../help/error/' + file + '.txt'), 'utf-8');
-        console.log(this.applyTokens(msg, tokens));
         process.exit();
     },
 

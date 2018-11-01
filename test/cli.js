@@ -16,12 +16,6 @@ describe('Testing command-line', function () {
         chai.assert.match(message, /testboard --help/, 'Not an help message');
     });
 
-    /*
-    it('Unknown command', function () {
-        chai.assert.match(cli.run(['unknown']), /ndev --help/, 'Not an help message');
-    });
-    */
-
     it('Call help', function () {
         cli.run(['--help'], (info) => {
             chai.assert.match(info, /Usage:/)

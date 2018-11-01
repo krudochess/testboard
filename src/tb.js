@@ -174,7 +174,7 @@ module.exports = {
     parseTestCase: function (file) {
         this.lastParseIsTestCase = false
         let data = this.loadTestCase(resolve(file));
-        if (typeof data['__IS_TEST__'] == 'undefined') { return }
+        if (typeof data['__IS_TEST__'] === 'undefined') { return }
         this.lastParseIsTestCase = true;
         delete data['__IS_TEST__']
         return this.cacheTestCase(file, data);
@@ -323,7 +323,7 @@ module.exports = {
             polyglot.file = join(path, polyglot[1]);
             let replace = util.escapeBracket(polyglot[0]);
             let command = 'polyglot ';
-            if (extname(polyglot[1]) == '.ini') {
+            if (extname(polyglot[1]) === '.ini') {
                 command += this.parsePolyglot(polyglot.file);
             } else {
                 command += this.forgePolyglot(path, polyglot[1]);
@@ -424,7 +424,7 @@ module.exports = {
         }
 
         for (let key in data) {
-            if (data.hasOwnProperty(key) && key == variable) {
+            if (data.hasOwnProperty(key) && key === variable) {
                 let value = this.resolveExpression(data[key], data, depth + 1);
 
                 return value
