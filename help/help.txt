@@ -1,14 +1,9 @@
-   Usage: ndev <command> [args...]
- Command: clone <repository|package>   Clone and mount package on ndev_modules
-          commit <module> [message]    Commit and push changes of ndev module
-          update <module>              Update changes of ndev module
-          publish <module>             Publish module on npmjs.org
-          install [package]            Install package on root project
-          require <module> <package>   Install and save dependencies on module
-          mount <module>               Mount root package into ndev_modules
-          freeze <module>              Hide ndev module at root project
-          unfreeze <module>            Restore ndev module at root project
-          purge <module>               Restore ndev module at root project
-          test <module>                Run test inside ndev module
-          run <module> <script>        Run script inside ndev module
- Manuals: ndev --help [commnad]
+Usage: testboard [options] testcase.ini
+       testboard [options] <directory>
+
+  --init <file>        Create empty test case and exits.
+
+  --version            Prints the version and exits.
+  --help               Prints usage information.
+
+Documentation can be found at https://github.com/krudochess/testboard

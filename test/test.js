@@ -5,6 +5,8 @@ const chai = require('chai')
     , util = require('../src/util')
     , tb = require('../src/tb')
 
+util.silent = true;
+
 chai.use(require('chai-fs'));
 
 describe('test/test.js: ', function () {
@@ -13,6 +15,6 @@ describe('test/test.js: ', function () {
             '$a': 'A',
             '$b': '$a'
         })
-        console.log(result);
+        chai.assert.equal(result, 'AA')
     })
 })

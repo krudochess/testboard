@@ -1,6 +1,6 @@
 /*!
- * ndev-framework
- * Copyright(c) 2016-2017 Javanile.org
+ * TestBoard
+ * Copyright(c) 2016-2018 Javanile & Krudochess
  * MIT Licensed
  */
 
@@ -19,14 +19,19 @@ module.exports = {
      *
      * @param args
      */
-    run: function(args, callback) {
-        if (!args || args.length === 0) { return util.err("&require-command"); }
+    run: function(args, cb) {
+        if (!args || args.length === 0) {
+            return util.error(`Missing test case or directory, type 'testboard --help'.`, cb)
+        }
+
+        if (args.indexOf('--version') > -1) { return this.version(cb) }
+        if (args.indexOf('--help') > -1) { return this.help(cb) }
 
         // get path to run
         var path = null;
         for (var i in args) {
             if (!args.hasOwnProperty(i)) { continue; }
-            if (args[i].charAt(0) != "-") {
+            if (args[i].charAt(0) != '-') {
                 path = args[i];
                 args.splice(i, 1);
                 break;
@@ -34,7 +39,7 @@ module.exports = {
         }
 
         // process init
-        var init = args.indexOf("--init");
+        var init = args.indexOf('--init');
         if (init > -1 && !fs.existsSync(path) && extname(path) == '.ini') {
             util.mkdir(dirname(file));
             util.copy(join(__dirname, '../ini/template/init.ini'), path);
@@ -42,7 +47,7 @@ module.exports = {
         }
 
         // process program
-        var program = args.indexOf("--program");
+        var program = args.indexOf('--program');
         if (program > -1) {
             return this.addProgram(args, program);
         }
@@ -55,7 +60,7 @@ module.exports = {
 
         // check file exists
         if (!fs.existsSync(path)) {
-            return util.err(`Test case '${path}' or directory not found.`);
+            return util.error(`Test case '${path}' or directory not found.`);
         }
 
         // run single test case
@@ -65,12 +70,12 @@ module.exports = {
 
         // run multiple tests into folder
         tb.runSingleTestCase = false;
-        glob("**/*.ini", { cwd: path }, (err, files) => {
+        glob('**/*.ini', { cwd: path }, (err, files) => {
             for (let i in files) {
                 tb.runTestCase(join(path, files[i]))
             }
             if (tb.runnedTestCase == 0) {
-                util.err(`No test case found into '${path}' directory.`);
+                util.error(`No test case found into '${path}' directory.`);
             }
         })
     },
@@ -81,6 +86,7 @@ module.exports = {
      * @param args
      */
     addProgram: function (args, offset) {
+        // NOT CLEAR
         var program = args[offset + 1];
         var exefile = args[offset + 2];
 
@@ -90,26 +96,24 @@ module.exports = {
     },
 
     /**
-     * Get software help.
-     *
-     * @param args
-     */
-    getHelp: function (args) {
-        var help = join(__dirname, "../help/help.txt");
-        if (!args[0]) { console.log(fs.readFileSync(help)+""); }
-        help = join(__dirname, "../help/" + args[0] + ".txt");
-        if (fs.existsSync(help)) { return console.log(fs.readFileSync(help)+""); }
-        return util.err("&cmd-undefined", { cmd: args[0] });
-    },
-
-    /**
      * Get software version.
      *
      * @param args
      */
-    getVersion: function () {
-        var info = JSON.parse(fs.readFileSync(join(__dirname, "../package.json")), "utf8");
-        util.info("ndev-framework " + info.version, "developed by Francesco Bianco <bianco@javanile.org>");
-        return info.name + "@" + info.version;
+    version: function (cb) {
+        let json = JSON.parse(fs.readFileSync(join(__dirname, '../package.json')), 'utf8')
+        util.info(`TestBoard ${json.version} developed by ${json.author.name} <${json.author.email}>`)
+        return cb(json.name + '@' + json.version)
+    },
+
+    /**
+     * Get software help.
+     *
+     * @param args
+     */
+    help: function (cb) {
+        let help = fs.readFileSync(join(__dirname, '../help/help.txt')).toString()
+        util.log(help)
+        return cb(help)
     }
-};
+}

@@ -1,3 +1,8 @@
+/*!
+ * TestBoard
+ * Copyright(c) 2016-2018 Javanile & Krudochess
+ * MIT Licensed
+ */
 
 const fs = require("fs")
     , join = require('path').join

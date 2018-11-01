@@ -1,6 +1,6 @@
 /*!
  * TestBoard
- * Copyright(c) 2016-2017 Javanile.org
+ * Copyright(c) 2016-2018 Javanile & Krudochess
  * MIT Licensed
  */
 
@@ -162,7 +162,7 @@ module.exports = {
         }
 
         if (this.runSingleTestCase) {
-            util.err(`Wrong test case '${file}' use '@feature(test)' directive.`);
+            util.error(`Wrong test case '${file}' use '@feature(test)' directive.`);
         }
     },
 
@@ -420,7 +420,7 @@ module.exports = {
      */
     resolveVariable: function (variable, data, depth) {
         if (depth > 100) {
-            util.err(`Stack Overflow`)
+            util.error(`Stack Overflow`)
         }
 
         for (let key in data) {
@@ -452,7 +452,7 @@ module.exports = {
                     value = bnfCalculate.calculate(infoCalculateAll[i][1], values)
                     console.log('value:', value)
                 } catch (ex) {
-                    util.err(`Calculate syntax error on '${expression}'`)
+                    util.error(`Calculate syntax error on '${expression}'`)
                     //console.log(ex.message.split("\n").slice(1).join("\n"))
                     console.log(ex.message)
                     process.exit(2);
@@ -480,7 +480,7 @@ module.exports = {
             try {
                 bnf.verify(infoAssertAll[i][1])
             } catch (ex) {
-                util.err(`Assert syntax error on '${path}'`)
+                util.error(`Assert syntax error on '${path}'`)
                 console.log(ex.message.split("\n").slice(1).join("\n"))
                 process.exit(2);
             }
